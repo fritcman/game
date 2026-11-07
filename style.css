@@ -25,3 +25,8 @@ button:hover{filter:brightness(1.15);transform:translateY(-1px)}button:active{tr
 #hotbar{display:flex;justify-content:center;gap:5px}.slot{position:relative;width:66px;height:66px;background:#0a100fbf;border:1px solid #ffffff50;display:grid;place-items:center;grid-template-rows:1fr 13px}.slot.selected{border:2px solid #e4bd76;background:#30291dbf}.slot strong{position:absolute;top:3px;left:5px;font-size:9px;color:#d7c49f}.slot span{font-size:23px;align-self:end}.slot small{font-size:8px;color:#d5d8d0}.help{font-size:9px;color:#e1e3d8;margin-top:9px;letter-spacing:.04em}
 .loading{position:absolute;bottom:25px;left:50%;transform:translateX(-50%);z-index:10;font-size:10px;letter-spacing:.2em;color:#eee;background:#0008;padding:8px 12px}
 @media(max-width:600px){.top-left{top:12px;left:10px;width:155px}.top-center{top:12px}.top-right{right:8px;top:65px}.stat{font-size:10px}.slot{width:56px;height:58px}.help{font-size:8px}.menu-notes{gap:8px}.top-center{left:50%;min-width:140px}}
+
+/* Performance-friendly HUD polish */
+.slot{backdrop-filter:none;box-shadow:0 5px 18px #0005}
+.slot.selected{box-shadow:0 0 0 1px #e4bd7655,0 5px 20px #0008}
+#prompt{border:1px solid #ffffff22;border-radius:3px}

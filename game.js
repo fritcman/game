@@ -12,7 +12,7 @@ let scene,camera,renderer,clock,controls;
 let started=false,paused=false,dead=false,locked=false;
 let health=100,hunger=100,wood=0,stone=0,day=1,dayTime=8*60;
 let lastSurvival=0,lastClock=0,lastToast=0,toastTimer=null;
-let velocityY=0,onGround=true,selected=0,hasAxe=false;
+let velocityY=0,onGround=true,selected=0,hasAxe=false,axeModel=null,axeSwing=0;
 const keys={};
 const worldObjects=[],resources=[],enemies=[];
 const raycaster=new THREE.Raycaster();
@@ -24,28 +24,57 @@ const SAVE_KEY='wilderness-survival-save-v1';
 function material(color,roughness=1){return new THREE.MeshStandardMaterial({color,roughness});}
 function init(){
   scene=new THREE.Scene();scene.background=new THREE.Color(0x9eb9c4);scene.fog=new THREE.Fog(0x9eb9c4,18,58);
-  camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,120);camera.position.set(0,2,7);
-  renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
+  camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,120);camera.position.set(0,2,7);scene.add(camera);
+  renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.15));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=false;renderer.outputColorSpace=THREE.SRGBColorSpace;
   $('game').appendChild(renderer.domElement);
   clock=new THREE.Clock();
   scene.add(new THREE.HemisphereLight(0xc9e4ed,0x45513a,1.45));
-  const sun=new THREE.DirectionalLight(0xffe0b0,2.1);sun.position.set(-20,35,15);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-35;sun.shadow.camera.right=35;sun.shadow.camera.top=35;sun.shadow.camera.bottom=-35;scene.add(sun);scene.userData.sun=sun;
+  const sun=new THREE.DirectionalLight(0xffe0b0,2.1);sun.position.set(-20,35,15);sun.castShadow=false;scene.add(sun);scene.userData.sun=sun;
   mat.grass=material(0x557b43);mat.dirt=material(0x6a5038);mat.stone=material(0x777b78);mat.wood=material(0x755033);mat.leaves=material(0x315b39);mat.trunk=material(0x654329);mat.bark=material(0x795638);mat.apple=material(0xb83c2e);mat.zombie=material(0x6b8960);
   buildWorld();addClouds();addCamp();
-  controls={yaw:0,pitch:0};
+  controls={yaw:0,pitch:0};createAxeViewmodel();
   addEvents();animate();ui.loading.classList.add('hidden');
 }
+
+function createAxeViewmodel(){
+  axeModel=new THREE.Group();
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(.075,.075,.72),new THREE.MeshStandardMaterial({color:0x79502e,roughness:1}));
+  handle.position.set(0,-.05,0);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.34,.25,.13),new THREE.MeshStandardMaterial({color:0x9da7a6,metalness:.55,roughness:.42}));
+  head.position.set(-.13,.25,0);
+  const edge=new THREE.Mesh(new THREE.BoxGeometry(.07,.29,.145),new THREE.MeshStandardMaterial({color:0xc6cfca,metalness:.65,roughness:.3}));
+  edge.position.set(-.29,.25,0);
+  axeModel.add(handle,head,edge);
+  axeModel.position.set(.48,-.43,-.78);
+  axeModel.rotation.set(-.22,-.18,-.18);
+  axeModel.visible=false;
+  camera.add(axeModel);
+}
+function refreshAxeView(){
+  if(axeModel)axeModel.visible=hasAxe&&selected===1;
+}
+
 function addBlock(x,y,z,material,kind='block',scale=1){
-  const mesh=new THREE.Mesh(blockGeo,material);mesh.position.set(x,y,z);mesh.scale.setScalar(scale);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData={kind,resource:kind==='tree'?'wood':kind==='rock'?'stone':null,hp:kind==='tree'?3:kind==='rock'?4:1};
+  const mesh=new THREE.Mesh(blockGeo,material);mesh.position.set(x,y,z);mesh.scale.setScalar(scale);mesh.castShadow=false;mesh.receiveShadow=false;mesh.userData={kind,resource:kind==='tree'?'wood':kind==='rock'?'stone':null,hp:kind==='tree'?3:kind==='rock'?4:1};
   scene.add(mesh);worldObjects.push(mesh);return mesh;
 }
 function buildWorld(){
-  // Flat voxel-like terrain with a slightly varied natural surface.
+  // Terrain uses instancing: thousands of tiles are drawn in only two batches.
+  const grassBatch=new THREE.InstancedMesh(blockGeo,mat.grass,49*49);
+  const dirtBatch=new THREE.InstancedMesh(blockGeo,mat.dirt,49*49);
+  const dummy=new THREE.Object3D();let gi=0,di=0;
   for(let x=-24;x<=24;x++)for(let z=-24;z<=24;z++){
-    const n=Math.sin(x*1.7+z*.4)*.08+Math.cos(z*1.2-x*.3)*.06;
-    const top=addBlock(x,-.5+n,z,mat.grass,'ground');top.scale.set(1,.22,1);top.position.y=-.11+n;
-    if((x+z)%3===0){const dirt=addBlock(x,-.68,z,mat.dirt,'ground');dirt.scale.set(1,.18,1);dirt.position.y=-.29+n;}
+    const n=Math.sin(x*1.7+z*.4)*.035+Math.cos(z*1.2-x*.3)*.025;
+    dummy.position.set(x,-.12+n,z);dummy.scale.set(1,.22,1);dummy.updateMatrix();
+    grassBatch.setMatrixAt(gi++,dummy.matrix);
+    if((x+z)%3===0){
+      dummy.position.y=-.29+n;dummy.scale.set(1,.16,1);dummy.updateMatrix();
+      dirtBatch.setMatrixAt(di++,dummy.matrix);
+    }
   }
+  grassBatch.count=gi;dirtBatch.count=di;
+  grassBatch.frustumCulled=true;dirtBatch.frustumCulled=true;
+  scene.add(grassBatch,dirtBatch);
   // Trees arranged in irregular clearings around the spawn point.
   for(let x=-21;x<=21;x+=3)for(let z=-21;z<=21;z+=3){
     if(Math.hypot(x,z)<7)continue;
@@ -68,7 +97,7 @@ function makeRock(x,z){
 }
 function addClouds(){
   const cloudMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1});
-  for(let i=0;i<12;i++){const g=new THREE.Group();const x=(Math.random()-.5)*80,z=(Math.random()-.5)*80,y=17+Math.random()*5;
+  for(let i=0;i<7;i++){const g=new THREE.Group();const x=(Math.random()-.5)*80,z=(Math.random()-.5)*80,y=17+Math.random()*5;
     for(let j=0;j<4;j++){const m=new THREE.Mesh(new THREE.BoxGeometry(3+Math.random()*2,1,2.5),cloudMat);m.position.set((j-1.5)*2,Math.random()*.5,Math.random()*2);g.add(m);}
     g.position.set(x,y,z);scene.add(g);g.userData.drift=.15+Math.random()*.2;scene.userData.clouds??=[];scene.userData.clouds.push(g);
   }
@@ -108,14 +137,14 @@ function pause(){paused=true;ui.pause.classList.remove('hidden');document.exitPo
 function resume(){paused=false;ui.pause.classList.add('hidden');renderer.domElement.requestPointerLock();}
 function exitPointer(){if(document.pointerLockElement)document.exitPointerLock();}
 function resetGame(){
-  health=100;hunger=100;wood=0;stone=0;day=1;dayTime=480;hasAxe=false;camera.position.set(0,2,7);controls.yaw=0;controls.pitch=0;camera.rotation.set(0,0,0);dead=false;paused=false;
+  health=100;hunger=100;wood=0;stone=0;day=1;dayTime=480;hasAxe=false;refreshAxeView();camera.position.set(0,2,7);controls.yaw=0;controls.pitch=0;camera.rotation.set(0,0,0);dead=false;paused=false;
 }
 function showToast(msg){ui.toast.textContent=msg;ui.toast.style.opacity=1;clearTimeout(toastTimer);toastTimer=setTimeout(()=>ui.toast.style.opacity=0,1800);}
 function updateHud(){
   ui.healthFill.style.width=health+'%';ui.hungerFill.style.width=hunger+'%';ui.healthText.textContent=Math.ceil(health);ui.hungerText.textContent=Math.ceil(hunger);ui.wood.textContent=wood;ui.stone.textContent=stone;
   const h=Math.floor(dayTime/60)%24,m=Math.floor(dayTime%60);ui.clock.textContent=`ДЕНЬ ${day} · ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
-function updateHotbar(){document.querySelectorAll('.slot').forEach((s,i)=>s.classList.toggle('selected',i===selected));}
+function updateHotbar(){document.querySelectorAll('.slot').forEach((s,i)=>s.classList.toggle('selected',i===selected));refreshAxeView();}
 function forward(){return new THREE.Vector3(-Math.sin(controls.yaw),0,-Math.cos(controls.yaw));}
 function right(){return new THREE.Vector3(Math.cos(controls.yaw),0,-Math.sin(controls.yaw));}
 function move(dt){
@@ -140,18 +169,19 @@ function interact(){
   if(target.userData.kind==='tree'||target.userData.kind==='rock')mine(target);
 }
 function mineOrAttack(){
+  if(hasAxe&&selected===1)axeSwing=1;
   const target=getTarget();if(target){mine(target);return;}
   const enemy=nearestEnemy();if(enemy&&enemy.distance<3){enemy.hp-=hasAxe?2:1;if(enemy.hp<=0){scene.remove(enemy.mesh);enemies.splice(enemies.indexOf(enemy),1);showToast('ВРАГ ПОВЕРЖЕН');}else showToast('ПОПАДАНИЕ');}
 }
 function mine(target){
-  target.userData.hp--;
+  target.userData.hp-=(hasAxe&&selected===1)?2:1;
   target.material=target.material.clone();target.material.color.multiplyScalar(.82);
   if(target.userData.hp<=0){
     const kind=target.userData.resource;
     if(kind==='wood'){wood+=3;showToast('+3 ДЕРЕВА');}
     if(kind==='stone'){stone+=2;showToast('+2 КАМНЯ');}
     scene.remove(target);worldObjects.splice(worldObjects.indexOf(target),1);
-    if(!hasAxe&&wood>=5){hasAxe=true;showToast('ТЫ СОБРАЛ МАТЕРИАЛЫ. ТОПОР ДОСТУПЕН В СЛОТЕ 2');}
+    if(!hasAxe&&wood>=5){hasAxe=true;showToast('ТОПОР СОЗДАН! ВЫБЕРИ СЛОТ 2');refreshAxeView();}
     updateHud();
   }else showToast('ЕЩЁ НЕСКОЛЬКО УДАРОВ');
 }
@@ -163,7 +193,7 @@ function useItem(){
 function nearestEnemy(){let best=null;for(const e of enemies){const d=e.mesh.position.distanceTo(camera.position);if(!best||d<best.distance)best={...e,distance:d};}return best;}
 function spawnEnemy(){
   const angle=Math.random()*Math.PI*2,dist=13+Math.random()*7;
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(.75,1.7,.55),mat.zombie);mesh.position.set(camera.position.x+Math.cos(angle)*dist,.85,camera.position.z+Math.sin(angle)*dist);mesh.castShadow=true;scene.add(mesh);enemies.push({mesh,hp:3,attack:0});
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(.75,1.7,.55),mat.zombie);mesh.position.set(camera.position.x+Math.cos(angle)*dist,.85,camera.position.z+Math.sin(angle)*dist);mesh.castShadow=false;scene.add(mesh);enemies.push({mesh,hp:3,attack:0});
 }
 function updateEnemies(dt){
   for(let i=enemies.length-1;i>=0;i--){const e=enemies[i],p=e.mesh.position;const dx=camera.position.x-p.x,dz=camera.position.z-p.z,d=Math.hypot(dx,dz);
@@ -195,7 +225,7 @@ function saveGame(){
   try{localStorage.setItem(SAVE_KEY,JSON.stringify(data));}catch(e){showToast('НЕ УДАЛОСЬ СОХРАНИТЬ');}
 }
 function loadGame(){try{const raw=localStorage.getItem(SAVE_KEY);return raw?JSON.parse(raw):null;}catch(e){return null;}}
-function applySave(s){health=s.health??100;hunger=s.hunger??100;wood=s.wood??0;stone=s.stone??0;day=s.day??1;dayTime=s.dayTime??480;hasAxe=!!s.hasAxe;if(s.pos)camera.position.fromArray(s.pos);controls.yaw=s.yaw??0;camera.rotation.y=controls.yaw;updateHud();}
+function applySave(s){health=s.health??100;hunger=s.hunger??100;wood=s.wood??0;stone=s.stone??0;day=s.day??1;dayTime=s.dayTime??480;hasAxe=!!s.hasAxe;refreshAxeView();if(s.pos)camera.position.fromArray(s.pos);controls.yaw=s.yaw??0;camera.rotation.y=controls.yaw;updateHud();}
 let audioCtx=null,musicOn=true,musicTimer=null;
 function startMusic(){
   if(!musicOn||audioCtx)return;
@@ -216,6 +246,7 @@ function animate(){
   if(started&&!paused&&!dead){
     move(dt);updateDay(dt);updateEnemies(dt);survival(dt);
     for(const c of (scene.userData.clouds||[]))c.position.x+=c.userData.drift*dt;
+    if(axeModel){axeSwing=Math.max(0,axeSwing-dt*5);axeModel.rotation.x=-.22-axeSwing*.8;axeModel.rotation.z=-.18+axeSwing*.65;}
     const target=getTarget();ui.prompt.textContent=target?(target.userData.kind==='tree'?'ЛКМ — РУБИТЬ ДЕРЕВО':'ЛКМ — ДОБЫТЬ КАМЕНЬ'):'';
   }
   renderer.render(scene,camera);
