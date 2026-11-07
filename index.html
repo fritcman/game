@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#101820">
+  <title>WILDERNESS — Survival</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="menu" class="screen">
+    <div class="menu-panel">
+      <div class="eyebrow">A FIRST-PERSON SURVIVAL EXPERIENCE</div>
+      <h1>WILDERNESS<span> SURVIVAL</span></h1>
+      <p class="subtitle">Один. Дикий лес. И только то, что ты сможешь добыть.</p>
+      <button id="startBtn" class="primary">НАЧАТЬ ВЫЖИВАНИЕ</button>
+      <div class="menu-notes">
+        <span>WASD — движение</span><span>Мышь — обзор</span><span>ЛКМ — добыча</span><span>Пробел — прыжок</span>
+      </div>
+      <p class="small-note">Для лучшего опыта используй компьютер и полноэкранный режим.</p>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="top-left">
+      <div class="stat"><span>♥</span><div class="meter"><i id="healthFill"></i></div><b id="healthText">100</b></div>
+      <div class="stat hunger"><span>◆</span><div class="meter"><i id="hungerFill"></i></div><b id="hungerText">100</b></div>
+    </div>
+    <div class="top-center">
+      <div id="clock">ДЕНЬ 1 · 08:00</div>
+      <div id="weather">ТИХО В ЛЕСУ</div>
+    </div>
+    <div class="top-right">
+      <div class="resource">🪵 <b id="woodCount">0</b></div>
+      <div class="resource">🪨 <b id="stoneCount">0</b></div>
+      <button id="soundBtn" title="Звук">♫</button>
+    </div>
+    <div id="crosshair"><i></i><b></b></div>
+    <div id="prompt"></div>
+    <div id="toast"></div>
+    <div class="bottom-ui">
+      <div id="hotbar">
+        <div class="slot selected"><strong>1</strong><span>✊</span><small>Рука</small></div>
+        <div class="slot"><strong>2</strong><span>🪓</span><small>Топор</small></div>
+        <div class="slot"><strong>3</strong><span>🍎</span><small>Яблоко</small></div>
+      </div>
+      <div class="help">E — подобрать · ЛКМ — ударить / добыть · ПКМ — использовать · Shift — бег</div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="menu-panel compact">
+      <div class="eyebrow">ПЕРЕДЫШКА</div>
+      <h2>ПАУЗА</h2>
+      <p>Лес никуда не денется. Пока что.</p>
+      <button id="resumeBtn" class="primary">ПРОДОЛЖИТЬ</button>
+      <button id="saveBtn" class="secondary">СОХРАНИТЬ ИГРУ</button>
+      <button id="menuBtn" class="secondary">В ГЛАВНОЕ МЕНЮ</button>
+    </div>
+  </div>
+
+  <div id="death" class="screen hidden">
+    <div class="menu-panel compact">
+      <div class="eyebrow">ПУТЕШЕСТВИЕ ОКОНЧЕНО</div>
+      <h2>ТЫ НЕ ВЫЖИЛ</h2>
+      <p id="deathStats">День 1</p>
+      <button id="restartBtn" class="primary">ПОПРОБОВАТЬ СНОВА</button>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">ЗАГРУЗКА ЛЕСА…</div>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
